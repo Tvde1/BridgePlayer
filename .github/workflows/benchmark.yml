@@ -35,6 +35,15 @@ jobs:
           --no-build
           -- --exporters fullJson --filter '*'
 
+      - name: Check if gh-pages branch exists
+        id: gh-pages-check
+        run: |
+          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -43,6 +52,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # Publish results to the gh-pages branch on pushes to main
           auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          # Skip fetching gh-pages if the branch doesn't exist yet (first run)
+          skip-fetch-gh-pages: ${{ steps.gh-pages-check.outputs.exists == 'false' }}
           # Alert when a benchmark is 10% slower than the baseline
           alert-threshold: '110%'
           # Post a comment on the PR when performance regresses
