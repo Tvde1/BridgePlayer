@@ -93,6 +93,16 @@ public class SimulationBenchmarks
         await _sim.Run(10_000, threadCount: 1);
     }
 
+    /// <summary>
+    /// Benchmarks the full SimRunner mechanism running 10,000 iterations across 2 threads.
+    /// This measures the throughput of the parallel simulation engine end-to-end.
+    /// </summary>
+    [Benchmark]
+    public async Task GaborWackySimulationMultiThreaded()
+    {
+        await _sim.Run(10_000, threadCount: 2);
+    }
+
     internal record GaborWackyResult : ISimResult<GaborWackyResult>
     {
         public string Name { get; private init; } = null!;
