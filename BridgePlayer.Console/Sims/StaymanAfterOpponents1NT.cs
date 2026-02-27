@@ -28,25 +28,14 @@ internal static class StaymanAfterOpponents1NT
 
             var eastWrapper = new HandWrapper(deck.East);
 
-            // East: 15-17 HCP
-            if (eastWrapper.Points is < 15 or > 17) return;
-
-            // East: balanced hand – no void, no singleton, at most one doubleton
-            var eastSuits = eastWrapper.SuitCounts;
-            eastSuits.Deconstruct(out _, out _, out var eastSecondShortest, out var eastShortest);
-            if (eastShortest < 2 || eastSecondShortest < 3) return;
-
-            // East: no 4-card major (2D response to Stayman confirms no major)
-            if (eastSuits.Spades >= 4 || eastSuits.Hearts >= 4) return;
+            // East: 1NT opening (15-17 HCP, balanced, no 4-card major)
+            if (!eastWrapper.IsOneNoTrump()) return;
 
             var westWrapper = new HandWrapper(deck.West);
 
-            // West: 9-12 HCP
+            // West: 9-12 HCP, has a 4-card major (bid 2C Stayman)
             if (westWrapper.Points is < 9 or > 12) return;
-
-            // West: has a 4-card major (bid 2C Stayman looking for a major fit)
-            var westSuits = westWrapper.SuitCounts;
-            if (westSuits.Spades < 4 && westSuits.Hearts < 4) return;
+            if (!westWrapper.SuitCounts.HasFourCardMajor()) return;
 
             simData.HandsMatching++;
 

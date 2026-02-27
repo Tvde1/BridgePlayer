@@ -101,4 +101,19 @@ public readonly ref struct SuitCounts
         Deconstruct(out var a, out var b, out var c, out var d);
         return (a, b, c, d);
     }
+
+    /// <summary>
+    /// Returns true when the hand is balanced: no void, no singleton, and at most one doubleton
+    /// (i.e. shortest suit ≥ 2 and second-shortest suit ≥ 3).
+    /// </summary>
+    public bool IsBalanced()
+    {
+        Deconstruct(out _, out _, out var secondShortest, out var shortest);
+        return shortest >= 2 && secondShortest >= 3;
+    }
+
+    /// <summary>
+    /// Returns true when the hand contains at least one 4-card major (spades or hearts).
+    /// </summary>
+    public bool HasFourCardMajor() => Spades >= 4 || Hearts >= 4;
 }

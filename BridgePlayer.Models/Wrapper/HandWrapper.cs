@@ -46,4 +46,13 @@ public readonly ref struct HandWrapper
     public int Points { get; }
 
     public SuitCounts SuitCounts { get; }
+
+    /// <summary>
+    /// Returns true when the hand qualifies for a 1NT opening:
+    /// 15–17 HCP, balanced distribution, and no 4-card major.
+    /// </summary>
+    public bool IsOneNoTrump() =>
+        Points is >= 15 and <= 17 &&
+        SuitCounts.IsBalanced() &&
+        !SuitCounts.HasFourCardMajor();
 }
