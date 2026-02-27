@@ -33,7 +33,7 @@ jobs:
           --project BridgePlayer.Benchmarks/BridgePlayer.Benchmarks.csproj
           --configuration Release
           --no-build
-          -- --exporters json --filter '*'
+          -- --exporters fullJson --filter '*'
 
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
