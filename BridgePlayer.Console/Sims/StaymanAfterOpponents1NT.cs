@@ -3,6 +3,7 @@ using BridgePlayer.Models.Common;
 using BridgePlayer.Models.Wrapper;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using System.Runtime.InteropServices;
 
 namespace BridgePlayer.Console.Sims;
 
@@ -47,40 +48,24 @@ internal static class StaymanAfterOpponents1NT
             var southHearts = southWrapper.SuitCounts.Hearts;
             var northHearts = northWrapper.SuitCounts.Hearts;
 
-            // Spade analysis
-            if (southSpades == 3)
-            {
-                simData.SouthHasThreeSpades++;
-                // Assumption: with a 3-card major, partner has 5-card → 8-card fit
-                if (northSpades >= 5)
-                    simData.ThreeCardSpadeFitWithPartner++;
-            }
-
-            if (southSpades >= 4)
-            {
-                simData.SouthHasFourPlusSpades++;
-                if (southSpades + northSpades >= 8)
-                    simData.FourPlusCardSpadeFit++;
-            }
-
-            // Heart analysis
-            if (southHearts == 3)
-            {
-                simData.SouthHasThreeHearts++;
-                // Assumption: with a 3-card major, partner has 5-card → 8-card fit
-                if (northHearts >= 5)
-                    simData.ThreeCardHeartFitWithPartner++;
-            }
-
-            if (southHearts >= 4)
-            {
-                simData.SouthHasFourPlusHearts++;
-                if (southHearts + northHearts >= 8)
-                    simData.FourPlusCardHeartFit++;
-            }
+            var key = (southSpades, southHearts);
+            ref var entry = ref CollectionsMarshal.GetValueRefOrAddDefault(simData.Holdings, key, out _);
+            entry.Count++;
+            if (southSpades + northSpades >= 8) entry.SpadeFit++;
+            if (southHearts + northHearts >= 8) entry.HeartFit++;
         });
 
         return new PrintableSimResult(await calc.Run(50_000_000, threadCount: 8));
+    }
+
+    internal struct MajorFitCounts
+    {
+        /// <summary>Total occurrences of this (southSpades, southHearts) holding combination.</summary>
+        public long Count;
+        /// <summary>Hands where South and North together hold 8+ spades (8-card spade fit).</summary>
+        public long SpadeFit;
+        /// <summary>Hands where South and North together hold 8+ hearts (8-card heart fit).</summary>
+        public long HeartFit;
     }
 
     internal record SimResult : ISimResult<SimResult>
@@ -91,39 +76,34 @@ internal static class StaymanAfterOpponents1NT
         public long TotalHands { get; set; }
         public long HandsMatching { get; set; }
 
-        public long SouthHasThreeSpades { get; set; }
-        public long SouthHasFourPlusSpades { get; set; }
-        public long ThreeCardSpadeFitWithPartner { get; set; }
-        public long FourPlusCardSpadeFit { get; set; }
-
-        public long SouthHasThreeHearts { get; set; }
-        public long SouthHasFourPlusHearts { get; set; }
-        public long ThreeCardHeartFitWithPartner { get; set; }
-        public long FourPlusCardHeartFit { get; set; }
+        // Key: (southSpades, southHearts); tracks fit counts for each South major-holding combination
+        public Dictionary<(byte southSpades, byte southHearts), MajorFitCounts> Holdings { get; } = new();
 
         public static SimResult Merge(string name, ICollection<SimResult> results, long elapsedMilliseconds)
         {
-            return new()
+            var merged = new SimResult
             {
                 Name = name,
                 TotalHands = results.Sum(x => x.TotalHands),
                 HandsMatching = results.Sum(x => x.HandsMatching),
-                SouthHasThreeSpades = results.Sum(x => x.SouthHasThreeSpades),
-                SouthHasFourPlusSpades = results.Sum(x => x.SouthHasFourPlusSpades),
-                ThreeCardSpadeFitWithPartner = results.Sum(x => x.ThreeCardSpadeFitWithPartner),
-                FourPlusCardSpadeFit = results.Sum(x => x.FourPlusCardSpadeFit),
-                SouthHasThreeHearts = results.Sum(x => x.SouthHasThreeHearts),
-                SouthHasFourPlusHearts = results.Sum(x => x.SouthHasFourPlusHearts),
-                ThreeCardHeartFitWithPartner = results.Sum(x => x.ThreeCardHeartFitWithPartner),
-                FourPlusCardHeartFit = results.Sum(x => x.FourPlusCardHeartFit),
                 ElapsedMilliseconds = elapsedMilliseconds,
             };
+
+            foreach (var result in results)
+            {
+                foreach (var (key, data) in result.Holdings)
+                {
+                    ref var entry = ref CollectionsMarshal.GetValueRefOrAddDefault(merged.Holdings, key, out _);
+                    entry.Count += data.Count;
+                    entry.SpadeFit += data.SpadeFit;
+                    entry.HeartFit += data.HeartFit;
+                }
+            }
+
+            return merged;
         }
 
-        public static SimResult New()
-        {
-            return new();
-        }
+        public static SimResult New() => new();
     }
 
     public record PrintableSimResult
@@ -145,34 +125,6 @@ internal static class StaymanAfterOpponents1NT
                 .AddItem("Matching hands", _result.HandsMatching, Color.Blue)
                 .AddItem("Other", totalOverview - _result.HandsMatching, Color.Grey);
 
-            IRenderable spadeThreeChart = _result.SouthHasThreeSpades > 0
-                ? new BreakdownChart()
-                    .UseValueFormatter(val => $"{val} ({val / _result.SouthHasThreeSpades * 100:F2}%)")
-                    .AddItem("Partner has 5+ spades (8-card fit)", _result.ThreeCardSpadeFitWithPartner, Color.DarkGreen)
-                    .AddItem("No fit", _result.SouthHasThreeSpades - _result.ThreeCardSpadeFitWithPartner, Color.Grey)
-                : new Markup("[grey]No data[/]");
-
-            IRenderable spadeFourChart = _result.SouthHasFourPlusSpades > 0
-                ? new BreakdownChart()
-                    .UseValueFormatter(val => $"{val} ({val / _result.SouthHasFourPlusSpades * 100:F2}%)")
-                    .AddItem("8-card spade fit", _result.FourPlusCardSpadeFit, Color.DarkGreen)
-                    .AddItem("No fit", _result.SouthHasFourPlusSpades - _result.FourPlusCardSpadeFit, Color.Grey)
-                : new Markup("[grey]No data[/]");
-
-            IRenderable heartThreeChart = _result.SouthHasThreeHearts > 0
-                ? new BreakdownChart()
-                    .UseValueFormatter(val => $"{val} ({val / _result.SouthHasThreeHearts * 100:F2}%)")
-                    .AddItem("Partner has 5+ hearts (8-card fit)", _result.ThreeCardHeartFitWithPartner, Color.Red)
-                    .AddItem("No fit", _result.SouthHasThreeHearts - _result.ThreeCardHeartFitWithPartner, Color.Grey)
-                : new Markup("[grey]No data[/]");
-
-            IRenderable heartFourChart = _result.SouthHasFourPlusHearts > 0
-                ? new BreakdownChart()
-                    .UseValueFormatter(val => $"{val} ({val / _result.SouthHasFourPlusHearts * 100:F2}%)")
-                    .AddItem("8-card heart fit", _result.FourPlusCardHeartFit, Color.Red)
-                    .AddItem("No fit", _result.SouthHasFourPlusHearts - _result.FourPlusCardHeartFit, Color.Grey)
-                : new Markup("[grey]No data[/]");
-
             var innerGrid = new Grid()
                 .AddColumn()
                 .AddColumn(new GridColumn().RightAligned())
@@ -188,17 +140,35 @@ internal static class StaymanAfterOpponents1NT
                 .AddRow("Hands matching bidding sequence (E: 1NT balanced no major, W: Stayman with major):")
                 .AddRow(overview)
                 .AddEmptyRow()
-                .AddRow("[bold]Spades[/] - South has exactly 3 spades (partner assumed 5-card):")
-                .AddRow(spadeThreeChart)
-                .AddEmptyRow()
-                .AddRow("[bold]Spades[/] - South has 4+ spades (8-card combined fit):")
-                .AddRow(spadeFourChart)
-                .AddEmptyRow()
-                .AddRow("[bold]Hearts[/] - South has exactly 3 hearts (partner assumed 5-card):")
-                .AddRow(heartThreeChart)
-                .AddEmptyRow()
-                .AddRow("[bold]Hearts[/] - South has 4+ hearts (8-card combined fit):")
-                .AddRow(heartFourChart);
+                .AddRow("[bold]South major holdings[/] - fit probability by (spades, hearts) count:");
+
+            foreach (var ((spades, hearts), data) in _result.Holdings
+                .OrderBy(x => x.Key.southSpades)
+                .ThenBy(x => x.Key.southHearts))
+            {
+                if (data.Count == 0) continue;
+
+                rows.AddEmptyRow();
+                rows.AddRow($"South has [blue]{spades}♠[/]  [red]{hearts}♥[/]:");
+
+                if (spades > 0)
+                {
+                    rows.AddRow("  ♠ Spade fit (N+S ≥ 8):");
+                    rows.AddRow(new BreakdownChart()
+                        .UseValueFormatter(val => $"{val} ({val / data.Count * 100:F2}%)")
+                        .AddItem("8-card spade fit", data.SpadeFit, Color.DarkGreen)
+                        .AddItem("No spade fit", data.Count - data.SpadeFit, Color.Grey));
+                }
+
+                if (hearts > 0)
+                {
+                    rows.AddRow("  ♥ Heart fit (N+S ≥ 8):");
+                    rows.AddRow(new BreakdownChart()
+                        .UseValueFormatter(val => $"{val} ({val / data.Count * 100:F2}%)")
+                        .AddItem("8-card heart fit", data.HeartFit, Color.Red)
+                        .AddItem("No heart fit", data.Count - data.HeartFit, Color.Grey));
+                }
+            }
 
             return rows;
         }
