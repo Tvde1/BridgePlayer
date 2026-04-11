@@ -6,12 +6,11 @@ on:
   pull_request_target:
 
 jobs:
-  benchmark:
+  run-benchmarks:
     name: Run performance benchmarks
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +35,29 @@ jobs:
           --configuration Release
           --no-build
           -- --exporters fullJson --filter '*'
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: BenchmarkDotNet.Artifacts/results/
+
+  report-benchmarks:
+    name: Report benchmark results
+    needs: run-benchmarks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: BenchmarkDotNet.Artifacts/results/
 
       - name: Check if gh-pages branch exists
         id: gh-pages-check
