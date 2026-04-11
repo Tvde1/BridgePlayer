@@ -5,24 +5,14 @@ namespace BridgePlayer.Tests;
 
 public class SuitCountsTests
 {
-    [Fact]
-    public void SuitCounts_StoresEachSuitCount()
+    [Theory]
+    [InlineData(5, 4, 3, 1, Suit.Spades, 5)]
+    [InlineData(5, 4, 3, 1, Suit.Hearts, 4)]
+    [InlineData(5, 4, 3, 1, Suit.Diamonds, 3)]
+    [InlineData(5, 4, 3, 1, Suit.Clubs, 1)]
+    public void SuitCounts_Indexer_ReturnsCorrectCount(byte sp, byte h, byte d, byte c, Suit suit, int expected)
     {
-        var counts = new SuitCounts(5, 4, 3, 1);
-        Assert.Equal(5, counts.Spades);
-        Assert.Equal(4, counts.Hearts);
-        Assert.Equal(3, counts.Diamonds);
-        Assert.Equal(1, counts.Clubs);
-    }
-
-    [Fact]
-    public void SuitCounts_Indexer_ReturnsCorrectCount()
-    {
-        var counts = new SuitCounts(5, 4, 3, 1);
-        Assert.Equal(5, counts[Suit.Spades]);
-        Assert.Equal(4, counts[Suit.Hearts]);
-        Assert.Equal(3, counts[Suit.Diamonds]);
-        Assert.Equal(1, counts[Suit.Clubs]);
+        Assert.Equal(expected, new SuitCounts(sp, h, d, c)[suit]);
     }
 
     [Fact]
@@ -31,125 +21,66 @@ public class SuitCountsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new SuitCounts(4, 3, 3, 3)[(Suit)99]);
     }
 
-    [Fact]
-    public void SuitCounts_HasCount_ReturnsTrueWhenExactMatch()
+    [Theory]
+    [InlineData(4, 3, 3, 3, 4, true, Suit.Spades)]   // spades has 4
+    [InlineData(3, 4, 3, 3, 4, true, Suit.Hearts)]    // hearts has 4, not spades
+    [InlineData(4, 4, 3, 2, 4, true, Suit.Spades)]    // both have 4; higher-ranked suit wins
+    [InlineData(4, 4, 4, 1, 3, false, Suit.Spades)]   // no suit has exactly 3
+    public void SuitCounts_HasCount_ReturnsMatchingSuit(byte sp, byte h, byte d, byte c, int count, bool expectedHit, Suit expectedSuit)
     {
-        var counts = new SuitCounts(4, 3, 3, 3);
-        Assert.True(counts.HasCount(4, out var suit));
-        Assert.Equal(Suit.Spades, suit);
+        var found = new SuitCounts(sp, h, d, c).HasCount(count, out var suit);
+        Assert.Equal(expectedHit, found);
+        if (expectedHit) Assert.Equal(expectedSuit, suit);
     }
 
-    [Fact]
-    public void SuitCounts_HasCount_ReturnsFalseWhenNoMatch()
+    [Theory]
+    [InlineData(5, 3, 3, 2, 5, true, Suit.Spades)]    // spades meets minimum
+    [InlineData(3, 5, 3, 2, 5, true, Suit.Hearts)]    // hearts meets minimum, not spades
+    [InlineData(4, 4, 2, 3, 4, true, Suit.Spades)]    // both ≥ 4; higher-ranked suit wins
+    [InlineData(4, 3, 3, 3, 5, false, Suit.Spades)]   // no suit has ≥ 5
+    public void SuitCounts_HasMinimumCount_ReturnsMatchingSuit(byte sp, byte h, byte d, byte c, int count, bool expectedHit, Suit expectedSuit)
     {
-        var counts = new SuitCounts(4, 4, 4, 1);
-        Assert.False(counts.HasCount(3, out _));
+        var found = new SuitCounts(sp, h, d, c).HasMinimumCount(count, out var suit);
+        Assert.Equal(expectedHit, found);
+        if (expectedHit) Assert.Equal(expectedSuit, suit);
     }
 
-    [Fact]
-    public void SuitCounts_HasCount_PrefersHigherRankedSuit()
+    [Theory]
+    [InlineData(3, 5, 2, 3,  5, 3, 3, 2)]   // already-sorted input
+    [InlineData(4, 4, 3, 2,  4, 4, 3, 2)]   // two suits tied
+    [InlineData(1, 5, 4, 3,  5, 4, 3, 1)]   // ascending input
+    public void SuitCounts_Deconstruct_OrdersLongestToShortest(
+        byte sp, byte h, byte d, byte c,
+        byte longest, byte secondLongest, byte secondShortest, byte shortest)
     {
-        // Both Spades and Hearts have 4 cards; Spades (rank 1) should win
-        var counts = new SuitCounts(4, 4, 3, 2);
-        Assert.True(counts.HasCount(4, out var suit));
-        Assert.Equal(Suit.Spades, suit);
+        new SuitCounts(sp, h, d, c).Deconstruct(
+            out var resultLongest, out var resultSecondLongest,
+            out var resultSecondShortest, out var resultShortest);
+        Assert.Equal(longest, resultLongest);
+        Assert.Equal(secondLongest, resultSecondLongest);
+        Assert.Equal(secondShortest, resultSecondShortest);
+        Assert.Equal(shortest, resultShortest);
     }
 
-    [Fact]
-    public void SuitCounts_HasMinimumCount_ReturnsTrueWhenMet()
+    [Theory]
+    [InlineData(4, 3, 3, 3, true)]    // 4-3-3-3
+    [InlineData(4, 4, 3, 2, true)]    // 4-4-3-2
+    [InlineData(5, 3, 3, 2, true)]    // 5-3-3-2
+    [InlineData(5, 4, 3, 1, false)]   // singleton
+    [InlineData(6, 4, 3, 0, false)]   // void
+    [InlineData(5, 4, 2, 2, false)]   // two doubletons
+    public void SuitCounts_IsBalanced(byte sp, byte h, byte d, byte c, bool expected)
     {
-        var counts = new SuitCounts(5, 3, 3, 2);
-        Assert.True(counts.HasMinimumCount(5, out var suit));
-        Assert.Equal(Suit.Spades, suit);
+        Assert.Equal(expected, new SuitCounts(sp, h, d, c).IsBalanced());
     }
 
-    [Fact]
-    public void SuitCounts_HasMinimumCount_ReturnsFalseWhenNotMet()
+    [Theory]
+    [InlineData(4, 3, 3, 3, true)]    // 4-card spades
+    [InlineData(3, 4, 3, 3, true)]    // 4-card hearts
+    [InlineData(3, 3, 4, 3, false)]   // 4-card minor only
+    [InlineData(3, 3, 3, 3, false)]   // no 4-card suit
+    public void SuitCounts_HasFourCardMajor(byte sp, byte h, byte d, byte c, bool expected)
     {
-        var counts = new SuitCounts(4, 3, 3, 3);
-        Assert.False(counts.HasMinimumCount(5, out _));
-    }
-
-    [Fact]
-    public void SuitCounts_HasMinimumCount_PrefersHigherRankedSuit()
-    {
-        // Hearts (4) and Spades (4) both meet minimum of 4; Spades wins
-        var counts = new SuitCounts(4, 4, 2, 3);
-        Assert.True(counts.HasMinimumCount(4, out var suit));
-        Assert.Equal(Suit.Spades, suit);
-    }
-
-    [Fact]
-    public void SuitCounts_Deconstruct_OrdersFromLongestToShortest()
-    {
-        var counts = new SuitCounts(3, 5, 2, 3);
-        counts.Deconstruct(out var longest, out var secondLongest, out var secondShortest, out var shortest);
-        Assert.Equal(5, longest);
-        Assert.Equal(3, secondLongest);
-        Assert.Equal(3, secondShortest);
-        Assert.Equal(2, shortest);
-    }
-
-    [Fact]
-    public void SuitCounts_IsBalanced_ReturnsTrueFor4333()
-    {
-        var counts = new SuitCounts(4, 3, 3, 3);
-        Assert.True(counts.IsBalanced());
-    }
-
-    [Fact]
-    public void SuitCounts_IsBalanced_ReturnsTrueFor4432()
-    {
-        var counts = new SuitCounts(4, 4, 3, 2);
-        Assert.True(counts.IsBalanced());
-    }
-
-    [Fact]
-    public void SuitCounts_IsBalanced_ReturnsTrueFor5332()
-    {
-        var counts = new SuitCounts(5, 3, 3, 2);
-        Assert.True(counts.IsBalanced());
-    }
-
-    [Fact]
-    public void SuitCounts_IsBalanced_ReturnsFalseForSingleton()
-    {
-        var counts = new SuitCounts(5, 4, 3, 1);
-        Assert.False(counts.IsBalanced());
-    }
-
-    [Fact]
-    public void SuitCounts_IsBalanced_ReturnsFalseForVoid()
-    {
-        var counts = new SuitCounts(6, 4, 3, 0);
-        Assert.False(counts.IsBalanced());
-    }
-
-    [Fact]
-    public void SuitCounts_IsBalanced_ReturnsFalseForTwoDoubletons()
-    {
-        var counts = new SuitCounts(5, 4, 2, 2);
-        Assert.False(counts.IsBalanced());
-    }
-
-    [Fact]
-    public void SuitCounts_HasFourCardMajor_ReturnsTrueWhenSpadesHasFour()
-    {
-        var counts = new SuitCounts(4, 3, 3, 3);
-        Assert.True(counts.HasFourCardMajor());
-    }
-
-    [Fact]
-    public void SuitCounts_HasFourCardMajor_ReturnsTrueWhenHeartsHasFour()
-    {
-        var counts = new SuitCounts(3, 4, 3, 3);
-        Assert.True(counts.HasFourCardMajor());
-    }
-
-    [Fact]
-    public void SuitCounts_HasFourCardMajor_ReturnsFalseWhenNoMajorHasFour()
-    {
-        var counts = new SuitCounts(3, 3, 4, 3);
-        Assert.False(counts.HasFourCardMajor());
+        Assert.Equal(expected, new SuitCounts(sp, h, d, c).HasFourCardMajor());
     }
 }
