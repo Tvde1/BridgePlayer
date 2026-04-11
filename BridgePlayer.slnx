@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="BridgePlayer.Benchmarks/BridgePlayer.Benchmarks.csproj" />
+  <Project Path="BridgePlayer.Console/BridgePlayer.Console.csproj" />
+  <Project Path="BridgePlayer.Dealer/BridgePlayer.Dealer.csproj" />
+  <Project Path="BridgePlayer.HandSimulator/BridgePlayer.HandSimulator.csproj" />
+  <Project Path="BridgePlayer.Models/BridgePlayer.Models.csproj" />
+</Solution>
