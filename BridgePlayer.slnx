@@ -9,4 +9,5 @@
   <Project Path="BridgePlayer.Dealer/BridgePlayer.Dealer.csproj" />
   <Project Path="BridgePlayer.HandSimulator/BridgePlayer.HandSimulator.csproj" />
   <Project Path="BridgePlayer.Models/BridgePlayer.Models.csproj" />
+  <Project Path="BridgePlayer.Tests/BridgePlayer.Tests.csproj" />
 </Solution>

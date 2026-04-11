@@ -1,11 +1,11 @@
-namespace BridgePlayer.Models.LIN;
+namespace BridgePlayer.Models.Enums;
 
 /// <summary>
 /// Represents one of the four compass directions (seats) at a bridge table.
 /// </summary>
 /// <remarks>
 /// The numeric values match the BBO dealer-digit encoding:
-/// <c>((int)direction + 2) % 4 + 1</c> gives the LIN dealer digit.
+/// <c>(int)direction + 1</c> gives the LIN dealer digit (South→1, West→2, North→3, East→4).
 /// </remarks>
 public enum Direction : byte
 {

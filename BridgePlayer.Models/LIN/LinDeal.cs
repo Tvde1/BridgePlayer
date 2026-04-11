@@ -1,4 +1,5 @@
 using BridgePlayer.Models.Common;
+using BridgePlayer.Models.Enums;
 
 namespace BridgePlayer.Models.LIN;
 
